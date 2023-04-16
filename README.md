@@ -32,6 +32,7 @@ pip install -r requirements.txt
 ```
 ### 3. Apply migrations
 ```
+python manage.py makemigrations
 python manage.py migrate
 ```
 ### 4. Create admin account
@@ -44,7 +45,7 @@ python manage.py loaddata tree_menu.json
 ``` 
 ### 6. Start server
 ```
-python manage.py startserver
+python manage.py runserver
 ```
 ### 7. Examples
 [Examples endpoint](http://127.0.0.1:8000/example/)
@@ -74,6 +75,7 @@ INSTALLED_APPS = (
 ```
 Apply migrations
 ```
+python manage.py makemigrations tree_menu
 python manage.py migrate tree_menu
 ```
 

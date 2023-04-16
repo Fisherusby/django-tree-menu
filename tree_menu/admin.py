@@ -1,9 +1,11 @@
-from django.contrib import admin
-from .models import TreeMenuItem, TreeMenu
 from django import forms
+from django.contrib import admin
+
+from .models import TreeMenu, TreeMenuItem
 
 
 def choice_parents_list(cur_obj=None):
+    """Return list of id`s that cannot be parent of the current menu`s item."""
     childs = {}
     queryset = TreeMenuItem.objects.all()
     for obj in queryset:
@@ -33,34 +35,38 @@ def choice_parents_list(cur_obj=None):
 
 class TreeMenuItemsFormAdmin(forms.ModelForm):
     def clean_parent(self):
-        if self.data['parent'] == '':
-            raise forms.ValidationError('This field is required.')
-        return self.cleaned_data['parent']
+        if self.data["parent"] == "":
+            raise forms.ValidationError("This field is required.")
+        return self.cleaned_data["parent"]
 
 
 class TreeMenuItemsAdmin(admin.ModelAdmin):
-    list_filter = (
-        "menu",
-    )
+    list_filter = ("menu",)
     search_fields = ("name__startswith",)
-    fields = ('name', 'url', 'parent')
+    fields = ("name", "url", "parent")
     list_display = ("full_name", "url")
 
     # ordering = ('full_name')
     form = TreeMenuItemsFormAdmin
 
     def save_model(self, request, obj, form, change):
+        # Set obj`s menu from parent
         obj.menu = obj.parent.menu
         super().save_model(request, obj, form, change)
 
     def get_queryset(self, request):
+        # Hide root menu`s item
         qs = super().get_queryset(request).filter(parent__isnull=False)
         return qs
 
     def render_change_form(self, request, context, *args, **kwargs):
-        exclude_child_list = choice_parents_list(kwargs.get('obj'))
-        context['adminform'].form.fields['parent'].queryset = context['adminform'].form.fields[
-                    'parent'].queryset.exclude(id__in=exclude_child_list)
+        exclude_child_list = choice_parents_list(kwargs.get("obj"))
+        # expend list of id`s that cannot be parent of the current menu`s item
+        context["adminform"].form.fields["parent"].queryset = (
+            context["adminform"]
+            .form.fields["parent"]
+            .queryset.exclude(id__in=exclude_child_list)
+        )
         return super().render_change_form(request, context, *args, **kwargs)
 
 
