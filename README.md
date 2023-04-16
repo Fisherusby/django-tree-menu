@@ -63,7 +63,7 @@ You can try this in example or add tree_menu app in your project.
 
 Clone app in your project
 ```commandline
-git clone https://github.com/Fisherusby/django-tree-menu/tree/main/tree_menu
+git clone https://github.com/Fisherusby/django-tree-menu.git tree_menu
 ```
 Within settings.py, add ‘tree_menu’ to INSTALLED_APPS:
 ```
@@ -73,7 +73,7 @@ INSTALLED_APPS = (
     ...
 )
 ```
-Apply migrations
+Make and apply migrations
 ```
 python manage.py makemigrations tree_menu
 python manage.py migrate tree_menu
