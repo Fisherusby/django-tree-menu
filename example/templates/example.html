@@ -1,0 +1,20 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+</head>
+<body>
+{% load tree_menu_tags %}
+ <h1>Current page is {{ menu }}</h1>
+<div class="menus">
+    <div>{% draw_menu 'Example menu 1' %}</div>
+    <div>{% draw_menu 'middle menu' %}</div>
+    <div>{% draw_menu 'side menu' %}</div>
+</div>
+
+</body>
+</html>
