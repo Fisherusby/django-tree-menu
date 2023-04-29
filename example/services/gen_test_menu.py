@@ -13,7 +13,7 @@ def get_item_for_tree(deep_count: int = 5, prefix: str = "Item "):
             {
                 "name": name,
                 "url": f"/example/{name}",
-                "child": get_item_for_tree(deep_count=deep_count - 1, prefix=name)
+                "children": get_item_for_tree(deep_count=deep_count - 1, prefix=name)
                 if deep_count > 1
                 else None,
             }
@@ -21,7 +21,7 @@ def get_item_for_tree(deep_count: int = 5, prefix: str = "Item "):
     return siblings
 
 
-def make_child_items(root_item, menu_items):
+def make_children_items(root_item, menu_items):
     for item in menu_items:
         menu_item = TreeMenuItem(
             name=item["name"],
@@ -30,8 +30,8 @@ def make_child_items(root_item, menu_items):
             menu=root_item.menu,
         )
         menu_item.save()
-        if item["child"] is not None:
-            make_child_items(menu_item, item["child"])
+        if item["children"] is not None:
+            make_children_items(menu_item, item["children"])
 
 
 def make_menu_by_tree(menu_name, menu_items):
@@ -40,7 +40,7 @@ def make_menu_by_tree(menu_name, menu_items):
     root_item = TreeMenuItem.objects.filter(menu=tree_menu_model, parent__isnull=True)[
         0
     ]
-    make_child_items(root_item, menu_items)
+    make_children_items(root_item, menu_items)
 
 
 def clear_all_menus():

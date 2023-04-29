@@ -9,11 +9,27 @@
 </head>
 <body>
 {% load tree_menu_tags %}
- <h1>Current page is {{ menu }}</h1>
+<header>
+    <div>
+        <h2>Current page:</h2>
+        <h2>url: {{ url }}</h2>
+        <h2>name: {{ name }}</h2>
+    </div>
+
+</header>
 <div class="menus">
-    <div>{% draw_menu 'Example menu 1' %}</div>
-    <div>{% draw_menu 'middle menu' %}</div>
-    <div>{% draw_menu 'side menu' %}</div>
+    <div>
+        <h2 class="title">Example menu 1</h2>
+        {% draw_menu 'Example menu 1' %}
+    </div>
+    <div>
+        <h2 class="title">middle menu</h2>
+        {% draw_menu 'middle menu' %}
+    </div>
+    <div>
+        <h2 class="title">side menu</h2>
+        {% draw_menu 'side menu' %}
+    </div>
 </div>
 
 </body>

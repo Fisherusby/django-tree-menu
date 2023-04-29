@@ -4,11 +4,26 @@
   box-sizing: border-box;
 }
 
+header > div{
+    padding: 10px 50px;
+    margin: 10px 10px;
+    border: 1px solid black;
+    border-radius: 15px;
+}
+
 div.menus{
-    padding: 50px;
+
     display: flex;
     flex-direction: row;
     justify-content: space-evenly;
+}
+
+div.menus>div{
+    width: 33%;
+    border: 1px solid black;
+    border-radius: 15px;
+    margin: 10px;
+    padding: 10px;
 }
 
 ul {
@@ -30,6 +45,7 @@ span.current a{
   list-style-type: none;
   margin: 10px 0 10px 10px;
   position: relative;
+  width: 150px;
 }
 .wtree li:before {
   content: "";

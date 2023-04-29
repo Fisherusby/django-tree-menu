@@ -7,7 +7,6 @@ from .services import gen_test_menu
 
 def index(request):
     return redirect("example")
-    # return render(request, 'index.html')
 
 
 def make_menu(request):
@@ -20,11 +19,21 @@ class MenuPathViewSet(views.View):
         return render(
             request,
             "example.html",
-            context={"menu": f"target to {request.path_info} and has`nt name"},
+            context={
+                "url": request.path_info,
+                "name": '-',
+            },
         )
 
 
 class NamedViewSet(views.View):
     def get(self, request):
-        url_name = resolve(self.request.path_info).url_name
-        return render(request, "example.html", context={"menu": f"named {url_name}"})
+        url_name = resolve(request.path_info).url_name
+        return render(
+            request,
+            "example.html",
+            context={
+                "url": request.path_info,
+                "name": url_name,
+            }
+        )

@@ -38,7 +38,6 @@ class TreeMenu:
     def _get_queryset(self):
         """Get queryset for all menu`s items by menu name."""
         return TreeMenuItem.objects.filter(menu__name=self.menu_name)
-        # return TreeMenuItem.objects.filter(menu__name=self.menu_name).prefetch_related('childs')
 
     def __to_url(self, url: str):
         """Convert model`s named url to path url."""
@@ -55,11 +54,12 @@ class TreeMenu:
         current_item = None
         for obj in self._get_queryset():
             if family.get(obj.pk) is None:
-                family[obj.pk] = {"child": []}
+                family[obj.pk] = {"children": []}
             family[obj.pk].update(
                 {
                     "parent": obj.parent_id,
                     "name": obj.name,
+                    "obj": obj,
                     "url": self.__to_url(obj.url),
                 }
             )
@@ -68,24 +68,11 @@ class TreeMenu:
                 head_item = obj.pk
 
             if family.get(obj.parent_id) is None:
-                family[obj.parent_id] = {"child": []}
-            family[obj.parent_id]["child"].append(obj.pk)
+                family[obj.parent_id] = {"children": []}
+            family[obj.parent_id]["children"].append(obj.pk)
 
             if obj.url is not None and obj.url in self.current_url:
-                current_item = obj.pk
-
-        def get_all_child_with_grandchild(item_id):
-            """Create all child`s child list."""
-            family[item_id]["all_child"] = []
-            for child_id in family[item_id]["child"]:
-                family[item_id]["all_child"].append(child_id)
-                family[item_id]["all_child"].extend(
-                    get_all_child_with_grandchild(child_id)
-                )
-            return family[item_id]["all_child"]
-
-        if head_item is not None:
-            get_all_child_with_grandchild(head_item)
+                current_item = obj
 
         return family, head_item, current_item
 
@@ -94,23 +81,26 @@ class TreeMenu:
         if self.__head is None:
             return None
 
-        return self._get_child(self.__head)
+        return self._get_children(self.__head)
 
-    def _get_child(self, menu_item):
-        """Return list of sibling with they child."""
+    def _get_children(self, menu_item_id):
+        """Return list of sibling with at children."""
         result = []
-        for child_id in self.__family[menu_item]["child"]:
+        for child_id in self.__family[menu_item_id]["children"]:
             item_menu = {
                 "name": self.__family[child_id]["name"],
                 "url": self.__family[child_id]["url"],
-                "current": "current" if self.__current == child_id else "",
+                "current": "current" if self.__current == self.__family[child_id]['obj'] else "",
             }
             if (
-                self.__current in self.__family[child_id]["all_child"]
-                or self.__current == child_id
+                AdminModelsItemMenuChoices.is_child(
+                    self.__family[child_id]['obj'],
+                    self.__current
+                )
+                or self.__current == self.__family[child_id]['obj']
             ):
-                if len(self.__family[child_id]["child"]) > 0:
-                    item_menu["child"] = self._get_child(child_id)
+                if len(self.__family[child_id]["children"]) > 0:
+                    item_menu["children"] = self._get_children(child_id)
             result.append(item_menu)
 
         return result
@@ -124,9 +114,9 @@ class TreeMenu:
         list_menu_items = ""
         for item_menu in for_render_tree:
             list_menu_items += self.menu_item_html.format(**item_menu)
-            child = item_menu.get("child")
-            if child is not None:
-                list_menu_items += self.__render_by_tree(child, first=False)
+            children = item_menu.get("children")
+            if children is not None:
+                list_menu_items += self.__render_by_tree(children, first=False)
         return self.list_menu_items_html.format(
             menu_items=list_menu_items, ul_class=ul_class
         )
@@ -138,3 +128,63 @@ class TreeMenu:
 
         for_render_tree = self._tree_for_render()
         return self.__render_by_tree(for_render_tree)
+
+
+class AdminModelsItemMenuChoices:
+    def __init__(self, current_item):
+        self.current_item = current_item
+        self.menu_items_qs = TreeMenuItem.objects.select_related('menu').all()
+        self.menu_items = self.__items()
+
+    @staticmethod
+    def is_child(paren_obj, child_obj):
+        if paren_obj is None or child_obj is None:
+            return False
+        return (
+                paren_obj.left_value < child_obj.left_value
+                and paren_obj.right_value > child_obj.right_value
+                and paren_obj.menu_id == child_obj.menu_id
+        )
+
+    def __items(self):
+        items = {
+            obj.id: {
+                'obj': obj,
+                'parent': obj.parent_id,
+                'children': [],
+            }
+            for obj in self.menu_items_qs
+        }
+
+        for obj in self.menu_items_qs:
+            if obj.parent_id is not None:
+                items[obj.parent_id]['children'].append(obj.id)
+        return items
+
+    def __all_children(self, obj_id):
+        result = self.menu_items[obj_id]['children']
+        for c in self.menu_items[obj_id]['children']:
+            result.extend(self.__all_children(c))
+        return result
+
+    def __full_name(self, menu_item_id):
+        if self.menu_items[menu_item_id]['parent'] is None:
+            return f"{self.menu_items[menu_item_id]['obj'].menu.name}"
+        else:
+            parent_name = self.__full_name(self.menu_items[menu_item_id]['parent'])
+            return f"{parent_name} > {self.menu_items[menu_item_id]['obj'].name}"
+
+    def __name_as_tree(self, obj):
+        if obj.level == 0:
+            return f'{obj.menu}'
+        return f"{obj.level*'⠀⠀'}└─ {obj.name}"
+
+    def choices(self):
+        result = [('', '-----------'), ]
+        for obj in self.menu_items_qs:
+            if not self.is_child(self.current_item, obj) and self.current_item != obj:
+                result.append(
+                    (obj.id, self.__name_as_tree(obj))
+                )
+        # return sorted(result, key=lambda o: o[1])
+        return result
