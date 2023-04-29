@@ -21,7 +21,7 @@ class MenuPathViewSet(views.View):
             "example.html",
             context={
                 "url": request.path_info,
-                "name": '-',
+                "name": "-",
             },
         )
 
@@ -35,5 +35,5 @@ class NamedViewSet(views.View):
             context={
                 "url": request.path_info,
                 "name": url_name,
-            }
+            },
         )

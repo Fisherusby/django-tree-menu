@@ -1,15 +1,15 @@
 import re
 
 from django.core.exceptions import ValidationError
-from django.db import models, connection
+from django.db import models
+from django.db.models.expressions import RawSQL
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.urls import exceptions, reverse
 
-from django.db.models.expressions import RawSQL
-
 
 def item_menu_url_validator(value: str):
+    """Validated url value."""
     # for absolute url
     url_pattern = "^https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$"
     # for path url
@@ -51,7 +51,7 @@ class TreeMenuItem(models.Model):
     menu = models.ForeignKey(
         "TreeMenu", related_name="menu_tree_items", on_delete=models.CASCADE
     )
-    left_value = models.IntegerField(default=-1, verbose_name='Order')
+    left_value = models.IntegerField(default=-1, verbose_name="Order")
     right_value = models.IntegerField(default=-1)
     level = models.IntegerField(default=-1)
 
@@ -62,7 +62,7 @@ class TreeMenuItem(models.Model):
             "menu_id",
             "url",
         )
-        ordering = ('menu_id', 'left_value')
+        ordering = ("menu_id", "left_value")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -80,31 +80,13 @@ class TreeMenuItem(models.Model):
         return self.full_name
 
     def save(self, *args, **kwargs):
-        need_rebuild = False
-        if self.pk is None or self.parent_id != self.__original_parent_id:
-            need_rebuild = True
-
         super().save(*args, **kwargs)
-
-        if need_rebuild:
+        if self.pk is None or self.parent_id != self.__original_parent_id:
             TreeMenuItem.rebuild_menu(self.menu_id)
-
-        # if change menu for parent have to change nemu for all children
-        # if self.__original_menu_id != self.menu_id and self.pk is not None:
-        #     for child in self.children.all():
-        #         child.menu_id = self.menu_id
-        #         child.save()
-
-        # if self.position is None:
-        #     all_sibling = TreeMenuItem.objects.filter(parent=self.parent)
-        #     self.position = all_sibling.count() + 1
-
 
     @classmethod
     def get_descendants(cls, node):
-        """
-        Returns a queryset of all descendants of a node using a single SELECT statement.
-        """
+        """Returns a queryset of all descendants of a node using a single SELECT statement."""
         sql = """
             WITH RECURSIVE descendants(id, name, url, menu_id, parent_id) AS (
                 SELECT id, name, url, menu_id, parent_id FROM {table} WHERE id = %s
@@ -112,35 +94,31 @@ class TreeMenuItem(models.Model):
                 SELECT {table}.id, {table}.name, {table}.url, {table}.menu_id, {table}.parent_id FROM descendants
                 JOIN {table} ON descendants.id = {table}.parent_id
             )
-            SELECT id FROM descendants WHERE id != %s
-        """.format(table=cls._meta.db_table)
+            SELECT id FROM descendants 
+        """.format(
+            table=cls._meta.db_table
+        )
 
-        return cls.objects.filter(id__in=RawSQL(sql, [node.id, node.id]))
+        return cls.objects.filter(id__in=RawSQL(sql, [node.id]))
 
     @classmethod
     def rebuild_menu(cls, menu_id):
-        # with connection.cursor() as cursor:
-        #     cursor.execute('LOCK TABLE %s' % cls._meta.db_table)
-        #     cursor.execute('DELETE FROM %s' % cls._meta.db_table)
-        #     cursor.execute('ALTER TABLE %s AUTO_INCREMENT = 1' % cls._meta.db_table)
-
         lft = 1
         level = 0
-
         # Get the root nodes
-        root_obj = cls.objects.filter(parent=None, menu_id=menu_id)[0]
-        cls._build_menu(root_obj, lft, level, menu_id)
+        root_obj = cls.objects.filter(parent=None, menu_id=menu_id)
+        cls._build_menu_item(root_obj[0], lft, level, menu_id)
 
     @classmethod
-    def _build_menu(cls, obj, lft, level, menu_id):
+    def _build_menu_item(cls, obj, lft, level, menu_id):
         obj.left_value = lft
         obj.menu_id = menu_id
         obj.level = level
         lft += 1
         level += 1
         rght = lft
-        for child in obj.children.all().order_by('name'):
-            rght = cls._build_menu(child, lft, level, menu_id)
+        for child in obj.children.all().order_by("name"):
+            rght = cls._build_menu_item(child, lft, level, menu_id)
             lft = rght + 1
         obj.right_value = rght
         obj.save()

@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from django.urls import exceptions, resolve, reverse
 
 from ..models import TreeMenuItem
@@ -19,15 +21,15 @@ class TreeMenu:
         self.current_url_name = self._get_url_name()
         self.__family, self.__head, self.__current = self._query_to_family()
 
-    def _get_url(self):
+    def _get_url(self) -> str:
         """Get path for current url."""
         return self.request.path_info
 
-    def _get_absolute_url(self):
+    def _get_absolute_url(self) -> str:
         """Get absolute current url."""
         return self.request.build_absolute_uri()
 
-    def _get_url_name(self):
+    def _get_url_name(self) -> Optional[str]:
         """Get url router name."""
         try:
             return resolve(self.request.path_info).url_name
@@ -39,7 +41,7 @@ class TreeMenu:
         """Get queryset for all menu`s items by menu name."""
         return TreeMenuItem.objects.filter(menu__name=self.menu_name)
 
-    def __to_url(self, url: str):
+    def __to_url(self, url: str) -> str:
         """Convert model`s named url to path url."""
         try:
             named_url = reverse(url)
@@ -47,14 +49,14 @@ class TreeMenu:
         except exceptions.NoReverseMatch:
             return url
 
-    def _query_to_family(self):
+    def _query_to_family(self) -> (dict, Optional[int], Optional[TreeMenuItem]):
         """Generate relation dict for menu`s items, find head`s item and current menu`s item."""
-        family = {}
-        head_item = None
-        current_item = None
+        family: dict = {}
+        head_item: Optional[int] = None
+        current_item: Optional[TreeMenuItem] = None
         for obj in self._get_queryset():
             if family.get(obj.pk) is None:
-                family[obj.pk] = {"children": []}
+                family[obj.pk]: dict = {"children": []}
             family[obj.pk].update(
                 {
                     "parent": obj.parent_id,
@@ -68,7 +70,7 @@ class TreeMenu:
                 head_item = obj.pk
 
             if family.get(obj.parent_id) is None:
-                family[obj.parent_id] = {"children": []}
+                family[obj.parent_id]: dict = {"children": []}
             family[obj.parent_id]["children"].append(obj.pk)
 
             if obj.url is not None and obj.url in self.current_url:
@@ -76,115 +78,119 @@ class TreeMenu:
 
         return family, head_item, current_item
 
-    def _tree_for_render(self):
+    def _tree_for_render(self) -> Optional[list]:
         """Prepare tree before render."""
         if self.__head is None:
             return None
 
         return self._get_children(self.__head)
 
-    def _get_children(self, menu_item_id):
+    def _get_children(self, menu_item_id) -> List[dict]:
         """Return list of sibling with at children."""
-        result = []
+        result: list = []
         for child_id in self.__family[menu_item_id]["children"]:
-            item_menu = {
+            item_menu: dict = {
                 "name": self.__family[child_id]["name"],
                 "url": self.__family[child_id]["url"],
-                "current": "current" if self.__current == self.__family[child_id]['obj'] else "",
+                "current": "current"
+                if self.__current == self.__family[child_id]["obj"]
+                else "",
             }
             if (
                 AdminModelsItemMenuChoices.is_child(
-                    self.__family[child_id]['obj'],
-                    self.__current
+                    self.__family[child_id]["obj"], self.__current
                 )
-                or self.__current == self.__family[child_id]['obj']
+                or self.__current == self.__family[child_id]["obj"]
             ):
                 if len(self.__family[child_id]["children"]) > 0:
-                    item_menu["children"] = self._get_children(child_id)
+                    item_menu["children"]: list = self._get_children(child_id)
             result.append(item_menu)
 
         return result
 
-    def __render_by_tree(self, for_render_tree, first: bool = True):
+    def __render_by_tree(
+        self, for_render_tree: Optional[list], first: bool = True
+    ) -> str:
         """Render tree to html code."""
         if first:
             ul_class = self.css_class_html
         else:
             ul_class = ""
-        list_menu_items = ""
+        list_menu_items: str = ""
         for item_menu in for_render_tree:
             list_menu_items += self.menu_item_html.format(**item_menu)
-            children = item_menu.get("children")
+            children: list = item_menu.get("children")
             if children is not None:
                 list_menu_items += self.__render_by_tree(children, first=False)
         return self.list_menu_items_html.format(
             menu_items=list_menu_items, ul_class=ul_class
         )
 
-    def render_menu(self):
+    def render_menu(self) -> str:
         """Return tree menu html code."""
         if self.__head is None:
             return f"Tree menu &lt;{self.menu_name}&gt; not fount"
 
-        for_render_tree = self._tree_for_render()
+        for_render_tree: Optional[list] = self._tree_for_render()
         return self.__render_by_tree(for_render_tree)
 
 
 class AdminModelsItemMenuChoices:
-    def __init__(self, current_item):
-        self.current_item = current_item
-        self.menu_items_qs = TreeMenuItem.objects.select_related('menu').all()
-        self.menu_items = self.__items()
+    def __init__(self, current_item: TreeMenuItem):
+        self.current_item: TreeMenuItem = current_item
+        self.menu_items_qs = TreeMenuItem.objects.select_related("menu").all()
+        self.menu_items: dict = self.__items()
 
     @staticmethod
-    def is_child(paren_obj, child_obj):
+    def is_child(paren_obj: TreeMenuItem, child_obj: TreeMenuItem) -> bool:
+        """Checks the relationship of objects."""
         if paren_obj is None or child_obj is None:
             return False
         return (
-                paren_obj.left_value < child_obj.left_value
-                and paren_obj.right_value > child_obj.right_value
-                and paren_obj.menu_id == child_obj.menu_id
+            paren_obj.left_value < child_obj.left_value
+            and paren_obj.right_value > child_obj.right_value
+            and paren_obj.menu_id == child_obj.menu_id
         )
 
-    def __items(self):
-        items = {
+    def __items(self) -> dict:
+        """Create dict with all menu items.
+
+        key: menu item id
+        value: include obj and list of children
+        """
+        items: dict = {
             obj.id: {
-                'obj': obj,
-                'parent': obj.parent_id,
-                'children': [],
+                "obj": obj,
+                "parent": obj.parent_id,
+                "children": [],
             }
             for obj in self.menu_items_qs
         }
 
         for obj in self.menu_items_qs:
             if obj.parent_id is not None:
-                items[obj.parent_id]['children'].append(obj.id)
+                items[obj.parent_id]["children"].append(obj.id)
         return items
 
-    def __all_children(self, obj_id):
-        result = self.menu_items[obj_id]['children']
-        for c in self.menu_items[obj_id]['children']:
+    def __all_children(self, obj_id: int) -> list:
+        """Return all children for menu item with children of children."""
+        result: list = self.menu_items[obj_id]["children"]
+        for c in self.menu_items[obj_id]["children"]:
             result.extend(self.__all_children(c))
         return result
 
-    def __full_name(self, menu_item_id):
-        if self.menu_items[menu_item_id]['parent'] is None:
-            return f"{self.menu_items[menu_item_id]['obj'].menu.name}"
-        else:
-            parent_name = self.__full_name(self.menu_items[menu_item_id]['parent'])
-            return f"{parent_name} > {self.menu_items[menu_item_id]['obj'].name}"
-
-    def __name_as_tree(self, obj):
+    def __name_as_tree(self, obj: TreeMenuItem) -> str:
+        """Return menu item as tree."""
         if obj.level == 0:
-            return f'{obj.menu}'
+            return f"{obj.menu}"
         return f"{obj.level*'⠀⠀'}└─ {obj.name}"
 
-    def choices(self):
-        result = [('', '-----------'), ]
+    def choices(self) -> list:
+        """Return list for choice parent without impossible parent."""
+        result: list = [
+            ("", "-----------"),
+        ]
         for obj in self.menu_items_qs:
             if not self.is_child(self.current_item, obj) and self.current_item != obj:
-                result.append(
-                    (obj.id, self.__name_as_tree(obj))
-                )
-        # return sorted(result, key=lambda o: o[1])
+                result.append((obj.id, self.__name_as_tree(obj)))
         return result
