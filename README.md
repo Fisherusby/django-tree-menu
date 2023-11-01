@@ -61,10 +61,7 @@ python manage.py runserver
 
 You can try this in example or add tree_menu app in your project.
 
-Clone app in your project
-```commandline
-git clone https://github.com/Fisherusby/django-tree-menu.git tree_menu
-```
+Copy tree_menu in your project folder
 Within settings.py, add ‘tree_menu’ to INSTALLED_APPS:
 ```
 INSTALLED_APPS = (
