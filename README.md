@@ -61,7 +61,8 @@ python manage.py runserver
 
 You can try this in example or add tree_menu app in your project.
 
-Copy tree_menu in your project folder
+Copy tree_menu in your project folder.
+
 Within settings.py, add ‘tree_menu’ to INSTALLED_APPS:
 ```
 INSTALLED_APPS = (
